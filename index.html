@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weekly Stock Performance Analyzer</title>
+    <title>Weekly Stock OHLC Analyzer</title>
     <style>
         :root {
             --bg-color: #121212; --card-color: #1e1e1e; --text-color: #e0e0e0;
@@ -13,245 +13,200 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px;
         }
-        .container { max-width: 1400px; margin: auto; }
-        .controls, .info-bar, .results-card {
+        .container {
+            max-width: 1200px; margin: auto;
+        }
+        .controls, .results-card {
             background-color: var(--card-color); border: 1px solid var(--border-color);
             padding: 20px; border-radius: 8px; margin-bottom: 20px;
         }
-        h1, h2 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-top: 0;}
-        .input-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        h1 {
+            color: var(--primary-color); text-align: center; margin-top: 0;
+        }
+        .input-group {
+            display: flex; gap: 10px; justify-content: center;
+        }
         #symbolInput {
-            flex-grow: 1; background-color: #333; border: 1px solid #555; border-radius: 4px;
-            color: var(--text-color); padding: 12px; font-size: 16px;
+            flex-grow: 0; background-color: #333; border: 1px solid #555; border-radius: 4px;
+            color: var(--text-color); padding: 12px; font-size: 16px; width: 200px;
         }
         button {
             background-color: var(--primary-color); color: var(--bg-color); border: none;
-            padding: 0 25px; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer; transition: opacity 0.2s;
+            padding: 12px 25px; border-radius: 4px; font-weight: bold; font-size: 16px;
+            cursor: pointer; transition: opacity 0.2s;
         }
-        button:hover { opacity: 0.8; }
-        .filter-group { display: flex; gap: 10px; }
-        .filter-group label {
-            padding: 8px 15px; border-radius: 4px; cursor: pointer; background-color: #333; transition: background-color 0.2s;
+        button:hover {
+            opacity: 0.8;
         }
-        .filter-group input { display: none; }
-        .filter-group input:checked + label { background-color: var(--primary-color); color: var(--bg-color); }
-        .info-bar { display: flex; justify-content: space-around; font-size: 18px; text-align: center; }
-        .info-item span { display: block; font-size: 24px; font-weight: bold; margin-top: 5px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; text-align: right; border-bottom: 1px solid var(--border-color); }
-        th { text-align: right; color: var(--primary-color); }
-        td:first-child, th:first-child { text-align: left; }
-        .positive { color: var(--green); }
-        .negative { color: var(--red); }
         .loader {
             border: 5px solid #f3f3f3; border-top: 5px solid var(--primary-color);
             border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;
             margin: 40px auto; display: none;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #error-message { color: var(--red); text-align: center; font-size: 18px; padding: 20px; display: none; }
-        #statsTable, #historyTable {
-            max-height: 400px;
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #error-message {
+            color: var(--red); text-align: center; font-size: 18px; padding: 20px; display: none;
+        }
+        table {
+            width: 100%; border-collapse: collapse; margin-top: 20px;
+        }
+        th, td {
+            padding: 12px; text-align: right; border-bottom: 1px solid var(--border-color);
+        }
+        th {
+            color: var(--primary-color);
+        }
+        td:first-child, th:first-child {
+            text-align: left;
+        }
+        .positive {
+            color: var(--green);
+        }
+        .negative {
+            color: var(--red);
+        }
+        #results {
+            display: none;
+        }
+        #stockTable {
+            max-height: 600px;
             overflow-y: auto;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Weekly Stock Performance Analyzer</h1>
+        <h1>Weekly Stock OHLC Analyzer</h1>
 
         <div class="controls">
             <div class="input-group">
                 <input type="text" id="symbolInput" placeholder="Enter Stock Symbol (e.g., SPY, AAPL)" onkeyup="this.value = this.value.toUpperCase();">
                 <button id="analyzeBtn">Analyze</button>
             </div>
-            <div class="filter-group" id="filterGroup">
-                <input type="radio" id="filterAll" name="filter" value="all" checked>
-                <label for="filterAll" id="filterAllLabel">All Weeks (Current Week Num)</label>
-                <input type="radio" id="filterUp" name="filter" value="after_up">
-                <label for="filterUp" id="filterUpLabel">After Up Week (Prev Week Num)</label>
-                <input type="radio" id="filterDown" name="filter" value="after_down">
-                <label for="filterDown" id="filterDownLabel">After Down Week (Prev Week Num)</label>
-            </div>
         </div>
 
         <div class="loader" id="loader"></div>
         <div id="error-message"></div>
-        <div id="results" style="display: none;">
-            <div class="info-bar">
-                <div class="info-item">Current Week<span id="currentWeek"></span></div>
-                <div class="info-item">Prior Week Return<span id="priorWeekReturn"></span></div>
-            </div>
-            <div class="results-card">
-                <h2>Historical Performance for Current Week Number</h2>
-                <table id="statsTable">
-                    <thead>
-                        <tr>
-                            <th>Week</th>
-                            <th>Count</th>
-                            <th>Avg Return %</th>
-                            <th>% Profitable</th>
-                            <th>Profit Factor</th>
-                            <th>Sharpe Ratio</th>
-                            <th>Std Dev %</th>
-                        </tr>
-                    </thead>
-                    <tbody id="statsBody"></tbody>
-                </table>
-                <p id="noStatsMessage" style="display: none; text-align: center; color: var(--red);">No historical performance data available for this week number.</p>
-            </div>
-            <div class="results-card">
-                <h2 id="historyTitle">Historical Data for Current Week Number Across Years</h2>
-                <table id="historyTable">
-                    <thead>
-                        <tr>
-                            <th>Week</th>
-                            <th>Year</th>
-                            <th>Open</th>
-                            <th>High</th>
-                            <th>Low</th>
-                            <th>Close</th>
-                            <th>Return %</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historyBody"></tbody>
-                </table>
-                <p id="noHistoryMessage" style="display: none; text-align: center; color: var(--red);">No historical data available for this week number.</p>
-            </div>
+        <div id="results" class="results-card">
+            <h2>Weekly OHLC Prices</h2>
+            <table id="stockTable">
+                <thead>
+                    <tr>
+                        <th>Week Start Date</th>
+                        <th>Week #</th>
+                        <th>Year</th>
+                        <th>Open</th>
+                        <th>High</th>
+                        <th>Low</th>
+                        <th>Close</th>
+                        <th>Change %</th>
+                    </tr>
+                </thead>
+                <tbody id="stockDataBody"></tbody>
+            </table>
+            <p id="noDataMessage" style="display: none; text-align: center; color: var(--red);">No data available for this stock symbol.</p>
         </div>
     </div>
     <script>
-    // This is the special "wrapper" that waits for the page to load
-    document.addEventListener('DOMContentLoaded', () => {
-        // --- Getting all the buttons and displays from the HTML ---
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        const symbolInput = document.getElementById('symbolInput');
-        const loader = document.getElementById('loader');
-        const resultsDiv = document.getElementById('results');
-        const errorDiv = document.getElementById('error-message');
-        const filterGroup = document.getElementById('filterGroup');
-        const filterAllLabel = document.getElementById('filterAllLabel');
-        const filterUpLabel = document.getElementById('filterUpLabel');
-        const filterDownLabel = document.getElementById('filterDownLabel');
-        const statsBody = document.getElementById('statsBody');
-        const historyBody = document.getElementById('historyBody');
-        const noStatsMessage = document.getElementById('noStatsMessage');
-        const noHistoryMessage = document.getElementById('noHistoryMessage');
+        // This is the special "wrapper" that waits for the page to load
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Getting all the buttons and displays from the HTML ---
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const symbolInput = document.getElementById('symbolInput');
+            const loader = document.getElementById('loader');
+            const resultsDiv = document.getElementById('results');
+            const errorDiv = document.getElementById('error-message');
+            const stockDataBody = document.getElementById('stockDataBody');
+            const noDataMessage = document.getElementById('noDataMessage');
 
-        // --- Setting up the buttons to call the function when clicked ---
-        analyzeBtn.addEventListener('click', analyzeStock);
-        filterGroup.addEventListener('change', analyzeStock);
-        symbolInput.addEventListener('keypress', function(event) {
-            if (event.key === "Enter") {
-                analyzeBtn.click();
+            // --- Setting up the buttons to call the function when clicked ---
+            analyzeBtn.addEventListener('click', fetchStockData);
+            symbolInput.addEventListener('keypress', function(event) {
+                if (event.key === "Enter") {
+                    analyzeBtn.click();
+                }
+            });
+
+            // --- A helper function to make numbers look nice (green for positive, red for negative) ---
+            function formatCell(value, isPercent = false, decimals = 2) {
+                if (typeof value !== 'number' || isNaN(value)) return value;
+                const fixedValue = value.toFixed(decimals);
+                const className = value > 0 ? 'positive' : value < 0 ? 'negative' : '';
+                return `<span class="${className}">${fixedValue}${isPercent ? '%' : ''}</span>`;
+            }
+
+            // --- This is the MAIN function that fetches and displays stock data ---
+            async function fetchStockData() {
+                const symbol = symbolInput.value.trim();
+                if (!symbol) {
+                    errorDiv.textContent = "Please enter a stock symbol.";
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+
+                // Show the spinning loader and hide old results
+                loader.style.display = 'block';
+                resultsDiv.style.display = 'none';
+                errorDiv.style.display = 'none';
+
+                try {
+                    console.log(`Fetching data for symbol: ${symbol}`);
+                    const apiUrl = `https://stephen-stock-analyzer.onrender.com/api/ohlc/${symbol}`;
+                    console.log(`API URL: ${apiUrl}`);
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    console.log(`Response status: ${response.status} ${response.statusText}`);
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text().catch(() => `HTTP error! Status: ${response.status}`);
+                        throw new Error(`Failed to fetch data: ${response.status} ${response.statusText} - ${errorText}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log('Response data:', data);
+
+                    // --- Populate the table with weekly OHLC data ---
+                    stockDataBody.innerHTML = '';
+                    noDataMessage.style.display = 'none';
+                    if (data.weekly_ohlc && data.weekly_ohlc.length > 0) {
+                        data.weekly_ohlc.forEach(week => {
+                            const row = stockDataBody.insertRow();
+                            row.innerHTML = `
+                                <td>${week.week_start_date}</td>
+                                <td>${week.week_number}</td>
+                                <td>${week.year}</td>
+                                <td>${week.open.toFixed(2)}</td>
+                                <td>${week.high.toFixed(2)}</td>
+                                <td>${week.low.toFixed(2)}</td>
+                                <td>${week.close.toFixed(2)}</td>
+                                <td>${formatCell(week.change_pct, true)}</td>
+                            `;
+                        });
+                        resultsDiv.style.display = 'block';
+                    } else {
+                        noDataMessage.style.display = 'block';
+                        resultsDiv.style.display = 'block';
+                    }
+
+                } catch (err) {
+                    console.error('Fetch error:', err);
+                    errorDiv.textContent = `Error: ${err.message}`;
+                    errorDiv.style.display = 'block';
+                } finally {
+                    // Hide the spinning loader when we're done
+                    loader.style.display = 'none';
+                }
             }
         });
-
-        // --- A helper function to make numbers look nice (green for positive, red for negative) ---
-        function formatCell(value, isPercent = false, decimals = 2) {
-            if (typeof value !== 'number' || isNaN(value)) return value;
-            const fixedValue = value.toFixed(decimals);
-            const className = value > 0 ? 'positive' : value < 0 ? 'negative' : '';
-            return `<span class="${className}">${fixedValue}${isPercent ? '%' : ''}</span>`;
-        }
-
-        // --- This is the MAIN function that does all the work! ---
-        async function analyzeStock() {
-            const symbol = symbolInput.value.trim();
-            if (!symbol) {
-                errorDiv.textContent = "Please enter a stock symbol.";
-                errorDiv.style.display = 'block';
-                return;
-            }
-
-            const filter = document.querySelector('input[name="filter"]:checked').value;
-
-            // Show the spinning loader and hide old results
-            loader.style.display = 'block';
-            resultsDiv.style.display = 'none';
-            errorDiv.style.display = 'none';
-
-            try {
-                console.log(`Fetching data for symbol: ${symbol} with filter: ${filter}`);
-                const apiUrl = `https://stephen-stock-analyzer.onrender.com/api/analyze/${symbol}?filter=${filter}`;
-                console.log(`API URL: ${apiUrl}`);
-
-                const response = await fetch(apiUrl);
-                console.log(`Response status: ${response.status} ${response.statusText}`);
-
-                const data = await response.json();
-                console.log('Response data:', data);
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Something went wrong');
-                }
-
-                // --- If everything was successful, fill in the tables ---
-                // Update filter labels dynamically based on current week
-                const currentWeekText = data.current_info.current_week || 'N/A';
-                const prevWeekNum = parseInt(currentWeekText) > 1 ? parseInt(currentWeekText) - 1 : 1;
-                filterAllLabel.textContent = `All Week ${currentWeekText}s`;
-                filterUpLabel.textContent = `After Up Week (Week ${prevWeekNum})`;
-                filterDownLabel.textContent = `After Down Week (Week ${prevWeekNum})`;
-
-                // Populate Info Bar
-                document.getElementById('currentWeek').textContent = currentWeekText;
-                document.getElementById('priorWeekReturn').innerHTML = formatCell(data.current_info.prior_week_return, true);
-
-                // Populate Stats Table
-                statsBody.innerHTML = '';
-                noStatsMessage.style.display = 'none';
-                // Ensure data.statistics is treated as an array
-                const statsArray = Array.isArray(data.statistics) ? data.statistics : (data.statistics ? [data.statistics] : []);
-                if (statsArray.length > 0 && statsArray[0]) {
-                    statsArray.forEach(stat => {
-                        const row = statsBody.insertRow();
-                        row.innerHTML = `
-                            <td>${stat.week_number || 'N/A'}</td>
-                            <td>${stat.count || 0}</td>
-                            <td>${formatCell(stat.avg_return || 0, true)}</td>
-                            <td>${formatCell(stat.pct_profitable || 0, true)}</td>
-                            <td>${formatCell(stat.profit_factor || 0)}</td>
-                            <td>${formatCell(stat.sharpe_ratio || 0)}</td>
-                            <td>${formatCell(stat.std_dev || 0, true)}</td>
-                        `;
-                    });
-                } else {
-                    noStatsMessage.style.display = 'block';
-                }
-
-                // Populate History Table
-                historyBody.innerHTML = '';
-                noHistoryMessage.style.display = 'none';
-                if (data.history && data.history.length > 0) {
-                    data.history.forEach(week => {
-                        const row = historyBody.insertRow();
-                        row.innerHTML = `
-                            <td>${week.week_number}</td>
-                            <td>${week.year}</td>
-                            <td>${week.open_price.toFixed(2)}</td>
-                            <td>${week.high_price.toFixed(2)}</td>
-                            <td>${week.low_price.toFixed(2)}</td>
-                            <td>${week.close_price.toFixed(2)}</td>
-                            <td>${formatCell(week.weekly_return_pct, true)}</td>
-                        `;
-                    });
-                } else {
-                    noHistoryMessage.style.display = 'block';
-                }
-
-                resultsDiv.style.display = 'block';
-
-            } catch (err) {
-                console.error('Fetch error:', err);
-                errorDiv.textContent = `Error: ${err.message}`;
-                errorDiv.style.display = 'block';
-            } finally {
-                // Hide the spinning loader when we're done
-                loader.style.display = 'none';
-            }
-        }
-    });
     </script>
 </body>
 </html>
