@@ -63,11 +63,11 @@
             </div>
             <div class="filter-group" id="filterGroup">
                 <input type="radio" id="filterAll" name="filter" value="all" checked>
-                <label for="filterAll">All Weeks</label>
+                <label for="filterAll" id="filterAllLabel">All Weeks (Current Week Num)</label>
                 <input type="radio" id="filterUp" name="filter" value="after_up">
-                <label for="filterUp">After Up Week</label>
+                <label for="filterUp" id="filterUpLabel">After Up Week (Prev Week Num)</label>
                 <input type="radio" id="filterDown" name="filter" value="after_down">
-                <label for="filterDown">After Down Week</label>
+                <label for="filterDown" id="filterDownLabel">After Down Week (Prev Week Num)</label>
             </div>
         </div>
 
@@ -79,11 +79,11 @@
                 <div class="info-item">Prior Week Return<span id="priorWeekReturn"></span></div>
             </div>
             <div class="results-card">
-                <h2>Historical Performance by Week</h2>
+                <h2>Historical Performance for Current Week Number</h2>
                 <table id="statsTable">
                     <thead>
                         <tr>
-                            <th>Week #</th>
+                            <th>Week</th>
                             <th>Count</th>
                             <th>Avg Return %</th>
                             <th>% Profitable</th>
@@ -96,11 +96,11 @@
                 </table>
             </div>
             <div class="results-card">
-                <h2 id="historyTitle">This Year's Weekly Data</h2>
+                <h2 id="historyTitle">Historical Data for Current Week Number Across Years</h2>
                 <table id="historyTable">
                     <thead>
                         <tr>
-                            <th>Week #</th>
+                            <th>Week</th>
                             <th>Year</th>
                             <th>Open</th>
                             <th>High</th>
@@ -114,7 +114,7 @@
             </div>
         </div>
     </div>
-   <script>
+    <script>
     // This is the special "wrapper" that waits for the page to load
     document.addEventListener('DOMContentLoaded', () => {
         // --- Getting all the buttons and displays from the HTML ---
@@ -124,6 +124,9 @@
         const resultsDiv = document.getElementById('results');
         const errorDiv = document.getElementById('error-message');
         const filterGroup = document.getElementById('filterGroup');
+        const filterAllLabel = document.getElementById('filterAllLabel');
+        const filterUpLabel = document.getElementById('filterUpLabel');
+        const filterDownLabel = document.getElementById('filterDownLabel');
 
         // --- Setting up the buttons to call the function when clicked ---
         analyzeBtn.addEventListener('click', analyzeStock);
@@ -174,39 +177,21 @@
                 }
 
                 // --- If everything was successful, fill in the tables ---
-                // Adjust data structure to match what frontend expects
-                // Assuming backend returns { weekly_data, statistics }
-                if (!data.weekly_data || !data.statistics) {
-                    throw new Error("Unexpected data format from server");
-                }
-
-                // Mock the expected structure for current_info
-                const current_info = {
-                    current_week: data.weekly_data.length > 0 ? data.weekly_data[data.weekly_data.length - 1].week_start_date : 'N/A',
-                    prior_week_return: data.weekly_data.length > 1 ? data.weekly_data[data.weekly_data.length - 2].week_return : 0
-                };
+                // Update filter labels dynamically based on current week
+                const currentWeekText = data.current_info.current_week || 'Current Week';
+                const prevWeekNum = parseInt(currentWeekText.split(' ')[1]) - 1;
+                filterAllLabel.textContent = `All ${currentWeekText}s`;
+                filterUpLabel.textContent = `After Up Week (Week ${prevWeekNum})`;
+                filterDownLabel.textContent = `After Down Week (Week ${prevWeekNum})`;
 
                 // Populate Info Bar
-                document.getElementById('currentWeek').textContent = current_info.current_week;
-                document.getElementById('priorWeekReturn').innerHTML = formatCell(current_info.prior_week_return, true);
+                document.getElementById('currentWeek').textContent = currentWeekText;
+                document.getElementById('priorWeekReturn').innerHTML = formatCell(data.current_info.prior_week_return, true);
 
-                // Populate Stats Table (adjust statistics format)
+                // Populate Stats Table
                 const statsTbody = document.getElementById('statsTable').querySelector('tbody');
                 statsTbody.innerHTML = '';
-                const stats = data.statistics;
-                // Create a simple stats array since frontend expects multiple week stats
-                const mockStats = [
-                    {
-                        week_number: 'All',
-                        count: stats.total_weeks,
-                        avg_return: stats.average_return,
-                        pct_profitable: stats.win_rate,
-                        profit_factor: stats.profit_factor,
-                        sharpe_ratio: stats.sharpe_ratio,
-                        std_dev: data.weekly_data.length > 0 ? (data.weekly_data.map(w => w.week_return).reduce((a, b) => a + b, 0) / data.weekly_data.length) * 0.2 : 0 // Rough approximation
-                    }
-                ];
-                mockStats.forEach(stat => {
+                data.statistics.forEach(stat => {
                     const row = statsTbody.insertRow();
                     row.innerHTML = `
                         <td>${stat.week_number}</td>
@@ -220,20 +205,19 @@
                 });
 
                 // Populate History Table
-                document.getElementById('historyTitle').textContent = `Recent Weekly Data`;
+                document.getElementById('historyTitle').textContent = `Historical Data for ${currentWeekText} Across Years`;
                 const historyTbody = document.getElementById('historyTable').querySelector('tbody');
                 historyTbody.innerHTML = '';
-                data.weekly_data.slice(-20).forEach(week => {
-                    const weekDate = new Date(week.week_start_date);
+                data.history.forEach(week => {
                     const row = historyTbody.insertRow();
                     row.innerHTML = `
-                        <td>${weekDate.toLocaleString('default', { month: 'short', day: 'numeric' })}</td>
-                        <td>${weekDate.getFullYear()}</td>
+                        <td>${week.week_number}</td>
+                        <td>${week.year}</td>
                         <td>${week.open_price.toFixed(2)}</td>
-                        <td>${week.high.toFixed(2)}</td>
-                        <td>${week.low.toFixed(2)}</td>
+                        <td>${week.high_price.toFixed(2)}</td>
+                        <td>${week.low_price.toFixed(2)}</td>
                         <td>${week.close_price.toFixed(2)}</td>
-                        <td>${formatCell(week.week_return, true)}</td>
+                        <td>${formatCell(week.weekly_return_pct, true)}</td>
                     `;
                 });
 
@@ -249,6 +233,6 @@
             }
         }
     });
-</script>
+    </script>
 </body>
 </html>
