@@ -1,6 +1,7 @@
 # app.py
 import os
 from flask import Flask, render_template, jsonify, request
+from flask_cors import CORS
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import yfinance as yf
@@ -13,6 +14,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 # --- INITIALIZATION ---
 load_dotenv()
 app = Flask(__name__)
+CORS(app)
 
 # Supabase client setup
 url: str = os.environ.get("SUPABASE_URL")
@@ -207,7 +209,7 @@ def scheduled_update_job():
 
 # Run the update job every day at 10:00 PM UTC (6 PM EST, after US markets close)
 scheduler = BackgroundScheduler(daemon=True)
-scheduler.add_job(scheduled_update_job, 'cron', hour=22, minute=0, timezone='utc')
+scheduler.add_job(scheduled_update_job, 'cron', hour=22, minute=0, timezone='UTC')
 scheduler.start()
 
 # --- RUN THE APP ---
