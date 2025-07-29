@@ -116,6 +116,7 @@
     </div>
 
     <script>
+    document.addEventListener('DOMContentLoaded', () => {
         const analyzeBtn = document.getElementById('analyzeBtn');
         const symbolInput = document.getElementById('symbolInput');
         const loader = document.getElementById('loader');
@@ -206,6 +207,7 @@
                 loader.style.display = 'none';
             }
         }
+    });
     </script>
 </body>
 </html>
