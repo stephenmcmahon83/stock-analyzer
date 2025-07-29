@@ -145,20 +145,20 @@ def analyze_route(symbol):
             positive_returns = [r for r in returns if r > 0]
             negative_returns = [r for r in returns if r < 0]
             statistics = [{
-                'week_number': str(current_week_num),  # Remove "W" prefix, just the number as string
+                'week_number': str(current_week_num),
                 'count': len(filtered_data),
                 'avg_return': float(np.mean(returns)) if returns else 0,
-                'pct_profitable': (len(positive_returns) / len(returns) * 100) if returns else 0,
+                'profitable_percent': (len(positive_returns) / len(returns) * 100) if returns else 0,
                 'profit_factor': calculate_profit_factor(positive_returns, negative_returns),
                 'sharpe_ratio': calculate_sharpe_ratio(returns),
                 'std_dev': float(np.std(returns)) if len(returns) > 1 else 0
             }]
         else:
             statistics = [{
-                'week_number': str(current_week_num),  # Remove "W" prefix
+                'week_number': str(current_week_num),
                 'count': 0,
                 'avg_return': 0,
-                'pct_profitable': 0,
+                'profitable_percent': 0,
                 'profit_factor': 0,
                 'sharpe_ratio': 0,
                 'std_dev': 0
@@ -166,21 +166,21 @@ def analyze_route(symbol):
         
         # Info for the current week (latest occurrence of the week number)
         current_info = {
-            'current_week': str(current_week_num),  # Remove "Week" text, just the number as string
+            'current_week': str(current_week_num),
             'prior_week_return': weekly_data[-2]['week_return'] if len(weekly_data) > 1 and weekly_data[-1]['week_number'] == current_week_num else 0
         }
         
-        # History table shows ALL historical data for the current week number across years (no limit)
+        # History table shows ALL historical data for all week numbers across years
         history = []
-        for week in current_week_data:
+        for week in weekly_data:
             history.append({
-                'week_number': str(week['week_number']),  # Remove "W" prefix
+                'week_number': str(week['week_number']),
                 'year': week['year'],
-                'open_price': week['open_price'],
-                'high_price': week['high'],
-                'low_price': week['low'],
-                'close_price': week['close_price'],
-                'weekly_return_pct': week['week_return']
+                'open': week['open_price'],
+                'high': week['high'],
+                'low': week['low'],
+                'close': week['close_price'],
+                'return': week['week_return']
             })
         
         result = {
