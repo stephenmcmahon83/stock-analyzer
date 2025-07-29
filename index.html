@@ -50,6 +50,10 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #error-message { color: var(--red); text-align: center; font-size: 18px; padding: 20px; display: none; }
+        #statsTable, #historyTable {
+            max-height: 400px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -92,8 +96,9 @@
                             <th>Std Dev %</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+                    <tbody id="statsBody"></tbody>
                 </table>
+                <p id="noStatsMessage" style="display: none; text-align: center; color: var(--red);">No historical performance data available for this week number.</p>
             </div>
             <div class="results-card">
                 <h2 id="historyTitle">Historical Data for Current Week Number Across Years</h2>
@@ -109,8 +114,9 @@
                             <th>Return %</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+                    <tbody id="historyBody"></tbody>
                 </table>
+                <p id="noHistoryMessage" style="display: none; text-align: center; color: var(--red);">No historical data available for this week number.</p>
             </div>
         </div>
     </div>
@@ -127,6 +133,10 @@
         const filterAllLabel = document.getElementById('filterAllLabel');
         const filterUpLabel = document.getElementById('filterUpLabel');
         const filterDownLabel = document.getElementById('filterDownLabel');
+        const statsBody = document.getElementById('statsBody');
+        const historyBody = document.getElementById('historyBody');
+        const noStatsMessage = document.getElementById('noStatsMessage');
+        const noHistoryMessage = document.getElementById('noHistoryMessage');
 
         // --- Setting up the buttons to call the function when clicked ---
         analyzeBtn.addEventListener('click', analyzeStock);
@@ -178,9 +188,9 @@
 
                 // --- If everything was successful, fill in the tables ---
                 // Update filter labels dynamically based on current week
-                const currentWeekText = data.current_info.current_week || 'Current Week';
-                const prevWeekNum = parseInt(currentWeekText.split(' ')[1]) - 1;
-                filterAllLabel.textContent = `All ${currentWeekText}s`;
+                const currentWeekText = data.current_info.current_week || 'N/A';
+                const prevWeekNum = parseInt(currentWeekText) > 1 ? parseInt(currentWeekText) - 1 : 1;
+                filterAllLabel.textContent = `All Week ${currentWeekText}s`;
                 filterUpLabel.textContent = `After Up Week (Week ${prevWeekNum})`;
                 filterDownLabel.textContent = `After Down Week (Week ${prevWeekNum})`;
 
@@ -189,13 +199,13 @@
                 document.getElementById('priorWeekReturn').innerHTML = formatCell(data.current_info.prior_week_return, true);
 
                 // Populate Stats Table
-                const statsTbody = document.getElementById('statsTable').querySelector('tbody');
-                statsTbody.innerHTML = '';
+                statsBody.innerHTML = '';
+                noStatsMessage.style.display = 'none';
                 // Ensure data.statistics is treated as an array
-                const statsArray = Array.isArray(data.statistics) ? data.statistics : [data.statistics];
-                statsArray.forEach(stat => {
-                    if (stat) { // Check if stat object exists
-                        const row = statsTbody.insertRow();
+                const statsArray = Array.isArray(data.statistics) ? data.statistics : (data.statistics ? [data.statistics] : []);
+                if (statsArray.length > 0 && statsArray[0]) {
+                    statsArray.forEach(stat => {
+                        const row = statsBody.insertRow();
                         row.innerHTML = `
                             <td>${stat.week_number || 'N/A'}</td>
                             <td>${stat.count || 0}</td>
@@ -205,25 +215,30 @@
                             <td>${formatCell(stat.sharpe_ratio || 0)}</td>
                             <td>${formatCell(stat.std_dev || 0, true)}</td>
                         `;
-                    }
-                });
+                    });
+                } else {
+                    noStatsMessage.style.display = 'block';
+                }
 
                 // Populate History Table
-                document.getElementById('historyTitle').textContent = `Historical Data for ${currentWeekText} Across Years`;
-                const historyTbody = document.getElementById('historyTable').querySelector('tbody');
-                historyTbody.innerHTML = '';
-                data.history.forEach(week => {
-                    const row = historyTbody.insertRow();
-                    row.innerHTML = `
-                        <td>${week.week_number}</td>
-                        <td>${week.year}</td>
-                        <td>${week.open_price.toFixed(2)}</td>
-                        <td>${week.high_price.toFixed(2)}</td>
-                        <td>${week.low_price.toFixed(2)}</td>
-                        <td>${week.close_price.toFixed(2)}</td>
-                        <td>${formatCell(week.weekly_return_pct, true)}</td>
-                    `;
-                });
+                historyBody.innerHTML = '';
+                noHistoryMessage.style.display = 'none';
+                if (data.history && data.history.length > 0) {
+                    data.history.forEach(week => {
+                        const row = historyBody.insertRow();
+                        row.innerHTML = `
+                            <td>${week.week_number}</td>
+                            <td>${week.year}</td>
+                            <td>${week.open_price.toFixed(2)}</td>
+                            <td>${week.high_price.toFixed(2)}</td>
+                            <td>${week.low_price.toFixed(2)}</td>
+                            <td>${week.close_price.toFixed(2)}</td>
+                            <td>${formatCell(week.weekly_return_pct, true)}</td>
+                        `;
+                    });
+                } else {
+                    noHistoryMessage.style.display = 'block';
+                }
 
                 resultsDiv.style.display = 'block';
 
