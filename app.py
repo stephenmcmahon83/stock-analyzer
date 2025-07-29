@@ -44,7 +44,10 @@ def process_data(stock_data):
     weekly_data['sharpe_ratio'] = (weekly_data['weekly_return_pct'].rolling(window=52, min_periods=1).mean() / rolling_std.replace(0, np.nan)) * np.sqrt(52)
     weekly_data.reset_index(inplace=True)
     weekly_data.rename(columns={'index': 'week_start_date'}, inplace=True)
+    
+    # FINAL FIX: Replace all Pandas NaN values with Python's None for JSON compatibility
     weekly_data = weekly_data.where(pd.notnull(weekly_data), None)
+    
     return weekly_data.to_dict('records')
 
 def store_results(symbol, weekly_stats):
@@ -74,13 +77,10 @@ def store_results(symbol, weekly_stats):
 def home():
     return "Stock Analysis API is running!"
 
-# +++++ NEW DIAGNOSTIC ROUTE +++++
 @app.route('/test')
 def test_route():
-    """A simple test route to verify the app is running and can return JSON."""
     print("--- /test route was successfully hit! ---")
     return jsonify({"status": "ok", "message": "The Flask server is running correctly."})
-# ++++++++++++++++++++++++++++++++
 
 @app.route('/api/analyze/<symbol>', methods=['GET'])
 def analyze_route(symbol):
