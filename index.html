@@ -210,4 +210,48 @@
                             <td>${stat.week_number || 'N/A'}</td>
                             <td>${stat.count || 0}</td>
                             <td>${formatCell(stat.avg_return || 0, true)}</td>
-                            <td>${formatCell(stat.p
+                            <td>${formatCell(stat.profitable_percent || 0, true)}</td>
+                            <td>${formatCell(stat.profit_factor || 0)}</td>
+                            <td>${formatCell(stat.sharpe_ratio || 0)}</td>
+                            <td>${formatCell(stat.std_dev || 0, true)}</td>
+                        `;
+                    });
+                } else {
+                    noStatsMessage.style.display = 'block';
+                }
+
+                // Populate History Table
+                historyBody.innerHTML = '';
+                noHistoryMessage.style.display = 'none';
+                const historyArray = Array.isArray(data.history) ? data.history : [data.history];
+                if (historyArray.length > 0 && historyArray[0]) {
+                    historyArray.forEach(hist => {
+                        const row = historyBody.insertRow();
+                        row.innerHTML = `
+                            <td>${hist.week_number || 'N/A'}</td>
+                            <td>${hist.year || 'N/A'}</td>
+                            <td>${hist.open || 'N/A'}</td>
+                            <td>${hist.high || 'N/A'}</td>
+                            <td>${hist.low || 'N/A'}</td>
+                            <td>${hist.close || 'N/A'}</td>
+                            <td>${formatCell(hist.return || 0, true)}</td>
+                        `;
+                    });
+                } else {
+                    noHistoryMessage.style.display = 'block';
+                }
+
+                // Show results
+                loader.style.display = 'none';
+                resultsDiv.style.display = 'block';
+
+            } catch (error) {
+                loader.style.display = 'none';
+                errorDiv.textContent = error.message || 'Failed to fetch data.';
+                errorDiv.style.display = 'block';
+            }
+        }
+    });
+    </script>
+</body>
+</html>
