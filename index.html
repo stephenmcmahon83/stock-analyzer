@@ -191,17 +191,21 @@
                 // Populate Stats Table
                 const statsTbody = document.getElementById('statsTable').querySelector('tbody');
                 statsTbody.innerHTML = '';
-                data.statistics.forEach(stat => {
-                    const row = statsTbody.insertRow();
-                    row.innerHTML = `
-                        <td>${stat.week_number}</td>
-                        <td>${stat.count}</td>
-                        <td>${formatCell(stat.avg_return, true)}</td>
-                        <td>${formatCell(stat.pct_profitable, true)}</td>
-                        <td>${formatCell(stat.profit_factor)}</td>
-                        <td>${formatCell(stat.sharpe_ratio)}</td>
-                        <td>${formatCell(stat.std_dev, true)}</td>
-                    `;
+                // Ensure data.statistics is treated as an array
+                const statsArray = Array.isArray(data.statistics) ? data.statistics : [data.statistics];
+                statsArray.forEach(stat => {
+                    if (stat) { // Check if stat object exists
+                        const row = statsTbody.insertRow();
+                        row.innerHTML = `
+                            <td>${stat.week_number || 'N/A'}</td>
+                            <td>${stat.count || 0}</td>
+                            <td>${formatCell(stat.avg_return || 0, true)}</td>
+                            <td>${formatCell(stat.pct_profitable || 0, true)}</td>
+                            <td>${formatCell(stat.profit_factor || 0)}</td>
+                            <td>${formatCell(stat.sharpe_ratio || 0)}</td>
+                            <td>${formatCell(stat.std_dev || 0, true)}</td>
+                        `;
+                    }
                 });
 
                 // Populate History Table
