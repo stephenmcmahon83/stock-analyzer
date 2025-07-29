@@ -4,7 +4,6 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import os
-from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -29,11 +28,8 @@ def calculate_weekly_metrics(data):
             continue
             
         try:
-            week_date = pd.Timestamp(week_start)
             week_info = {
                 'week_start_date': week_start.strftime('%Y-%m-%d'),
-                'week_number': week_date.isocalendar()[1],  # ISO week number (1-53)
-                'year': week_date.year,
                 'week_return': float((week_group['Close'].iloc[-1] / week_group['Close'].iloc[0] - 1) * 100),
                 'volume': float(week_group['Volume'].sum()),
                 'volatility': float(week_group['Close'].pct_change().std() * np.sqrt(252) * 100) if len(week_group) > 1 else 0.0,
@@ -43,7 +39,7 @@ def calculate_weekly_metrics(data):
                 'open_price': float(week_group['Open'].iloc[0])
             }
             for key, value in week_info.items():
-                if key != 'week_start_date' and key != 'week_number' and key != 'year' and (np.isnan(value) or np.isinf(value)):
+                if key != 'week_start_date' and (np.isnan(value) or np.isinf(value)):
                     week_info[key] = 0.0
             weekly_data.append(week_info)
         except Exception as e:
@@ -112,79 +108,59 @@ def analyze_route(symbol):
         if not weekly_data:
             return jsonify({"error": "No weekly data could be calculated"}), 500
         
-        # Determine current week number based on the latest week in data or current date
-        current_week_num = weekly_data[-1]['week_number'] if weekly_data else datetime.now().isocalendar()[1]
-        
-        # Apply filters based on week number and prior week performance
         filtered_data = weekly_data
-        current_week_data = [w for w in weekly_data if w['week_number'] == current_week_num]
-        if filter_type == 'after_up':
-            # Get Week N performance following an up week in Week N-1
-            filtered_data = []
-            for i in range(1, len(weekly_data)):
-                prev_week = weekly_data[i-1]
-                curr_week = weekly_data[i]
-                if curr_week['week_number'] == current_week_num and prev_week['week_number'] == current_week_num - 1 and prev_week['week_return'] > 0:
-                    filtered_data.append(curr_week)
-        elif filter_type == 'after_down':
-            # Get Week N performance following a down week in Week N-1
-            filtered_data = []
-            for i in range(1, len(weekly_data)):
-                prev_week = weekly_data[i-1]
-                curr_week = weekly_data[i]
-                if curr_week['week_number'] == current_week_num and prev_week['week_number'] == current_week_num - 1 and prev_week['week_return'] < 0:
-                    filtered_data.append(curr_week)
-        elif filter_type == 'all':
-            # Only current week number across all years
-            filtered_data = current_week_data
+        if filter_type == 'positive' or filter_type == 'after_up':
+            filtered_data = [w for w in weekly_data if w['week_return'] > 0]
+        elif filter_type == 'negative' or filter_type == 'after_down':
+            filtered_data = [w for w in weekly_data if w['week_return'] < 0]
         
-        # Calculate statistics for the filtered data (historical performance for current week number)
         returns = [w['week_return'] for w in filtered_data]
-        statistics = []
-        if returns:
-            positive_returns = [r for r in returns if r > 0]
-            negative_returns = [r for r in returns if r < 0]
-            statistics = [{
-                'week_number': str(current_week_num),
-                'count': len(filtered_data),
-                'avg_return': float(np.mean(returns)) if returns else 0,
-                'profitable_percent': (len(positive_returns) / len(returns) * 100) if returns else 0,
-                'profit_factor': calculate_profit_factor(positive_returns, negative_returns),
-                'sharpe_ratio': calculate_sharpe_ratio(returns),
-                'std_dev': float(np.std(returns)) if len(returns) > 1 else 0
-            }]
-        else:
-            statistics = [{
-                'week_number': str(current_week_num),
-                'count': 0,
-                'avg_return': 0,
-                'profitable_percent': 0,
-                'profit_factor': 0,
-                'sharpe_ratio': 0,
-                'std_dev': 0
-            }]
+        if not returns:
+            return jsonify({
+                'weekly_data': [],
+                'statistics': {
+                    'total_weeks': 0, 'positive_weeks': 0, 'negative_weeks': 0,
+                    'average_return': 0, 'best_week': 0, 'worst_week': 0,
+                    'win_rate': 0, 'profit_factor': 0, 'sharpe_ratio': 0
+                },
+                'current_info': {'current_week': 'N/A', 'prior_week_return': 0},
+                'history': []
+            })
         
-        # Info for the current week (latest occurrence of the week number)
-        current_info = {
-            'current_week': str(current_week_num),
-            'prior_week_return': weekly_data[-2]['week_return'] if len(weekly_data) > 1 and weekly_data[-1]['week_number'] == current_week_num else 0
+        positive_returns = [r for r in returns if r > 0]
+        negative_returns = [r for r in returns if r < 0]
+        statistics = {
+            'total_weeks': len(filtered_data),
+            'positive_weeks': len(positive_returns),
+            'negative_weeks': len(negative_returns),
+            'average_return': float(np.mean(returns)) if returns else 0,
+            'best_week': float(max(returns)) if returns else 0,
+            'worst_week': float(min(returns)) if returns else 0,
+            'win_rate': (len(positive_returns) / len(returns) * 100) if returns else 0,
+            'profit_factor': calculate_profit_factor(positive_returns, negative_returns),
+            'sharpe_ratio': calculate_sharpe_ratio(returns)
         }
         
-        # History table shows ALL historical data for all week numbers across years
+        current_info = {
+            'current_week': weekly_data[-1]['week_start_date'] if weekly_data else 'N/A',
+            'prior_week_return': weekly_data[-2]['week_return'] if len(weekly_data) > 1 else 0
+        }
+        
         history = []
-        for week in weekly_data:
+        for idx, week in enumerate(weekly_data[-20:]):
+            week_date = pd.Timestamp(week['week_start_date'])
             history.append({
-                'week_number': str(week['week_number']),
-                'year': week['year'],
-                'open': week['open_price'],
-                'high': week['high'],
-                'low': week['low'],
-                'close': week['close_price'],
-                'return': week['week_return']
+                'week_number': f"W{idx+1}",
+                'year': week_date.year,
+                'open_price': week['open_price'],
+                'high_price': week['high'],
+                'low_price': week['low'],
+                'close_price': week['close_price'],
+                'weekly_return_pct': week['week_return']
             })
         
         result = {
-            'weekly_data': filtered_data,
+            'weekly_data': filtered_data[-52:],
             'statistics': statistics,
             'current_info': current_info,
             'history': history
