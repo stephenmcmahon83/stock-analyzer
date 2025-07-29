@@ -91,7 +91,7 @@ def store_results(symbol, weekly_stats):
             'avg_loss_pct': week.get('avg_loss_pct'),
             'profit_factor': week.get('profit_factor'),
             'sharpe_ratio': week.get('sharpe_ratio'),
-            'last_updated': datetime.now(pytz.utc).isoformat()
+            'last_updated': pytz.utc.localize(datetime.utcnow()).isoformat()
         })
     
     # Use upsert to insert new records or update existing ones
