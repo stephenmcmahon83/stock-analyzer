@@ -28,7 +28,7 @@ def get_stock_data(symbol):
     history = ticker.history(period="5y")
     return history
 
-def process_and_analyze_data(stock_data, filter_type='all'):
+def process_and_analyze_data(symbol, stock_data, filter_type='all'):
     """Process stock data and return the structure expected by the frontend."""
     
     # Resample to weekly data
@@ -93,8 +93,8 @@ def process_and_analyze_data(stock_data, filter_type='all'):
             'weekly_return_pct': row['weekly_return_pct']
         })
     
-    # Store in database
-    store_weekly_data(stock_data.index[0].strftime('%Y-%m-%d'), weekly_data)
+    # Store in database - FIXED: Now passing symbol instead of date
+    store_weekly_data(symbol, weekly_data)
     
     return {
         'current_info': {
@@ -129,7 +129,7 @@ def store_weekly_data(symbol, weekly_data):
     
     if records_to_upsert:
         response = supabase.table(table_name).upsert(records_to_upsert, on_conflict='symbol,week_start_date').execute()
-        print(f"Stored {len(records_to_upsert)} weeks of data")
+        print(f"Stored {len(records_to_upsert)} weeks of data for {symbol}")
 
 # --- API Routes ---
 
@@ -157,8 +157,8 @@ def analyze_route(symbol):
         
         print(f"Fetched {len(stock_data)} days of data for {symbol}")
         
-        # Process and analyze
-        result = process_and_analyze_data(stock_data, filter_type)
+        # Process and analyze - FIXED: Now passing symbol as first parameter
+        result = process_and_analyze_data(symbol, stock_data, filter_type)
         
         print(f"Analysis complete for {symbol}")
         return jsonify(result)
