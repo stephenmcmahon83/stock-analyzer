@@ -145,7 +145,7 @@ def analyze_route(symbol):
             positive_returns = [r for r in returns if r > 0]
             negative_returns = [r for r in returns if r < 0]
             statistics = [{
-                'week_number': f"Week {current_week_num}",
+                'week_number': str(current_week_num),  # Remove "W" prefix, just the number as string
                 'count': len(filtered_data),
                 'avg_return': float(np.mean(returns)) if returns else 0,
                 'pct_profitable': (len(positive_returns) / len(returns) * 100) if returns else 0,
@@ -155,7 +155,7 @@ def analyze_route(symbol):
             }]
         else:
             statistics = [{
-                'week_number': f"Week {current_week_num}",
+                'week_number': str(current_week_num),  # Remove "W" prefix
                 'count': 0,
                 'avg_return': 0,
                 'pct_profitable': 0,
@@ -166,15 +166,15 @@ def analyze_route(symbol):
         
         # Info for the current week (latest occurrence of the week number)
         current_info = {
-            'current_week': f"Week {current_week_num}",
+            'current_week': str(current_week_num),  # Remove "Week" text, just the number as string
             'prior_week_return': weekly_data[-2]['week_return'] if len(weekly_data) > 1 and weekly_data[-1]['week_number'] == current_week_num else 0
         }
         
-        # History table shows all historical data for the current week number across years
+        # History table shows ALL historical data for the current week number across years (no limit)
         history = []
         for week in current_week_data:
             history.append({
-                'week_number': f"Week {week['week_number']}",
+                'week_number': str(week['week_number']),  # Remove "W" prefix
                 'year': week['year'],
                 'open_price': week['open_price'],
                 'high_price': week['high'],
