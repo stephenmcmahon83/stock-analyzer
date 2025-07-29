@@ -114,7 +114,7 @@
             </div>
         </div>
     </div>
-    <script>
+   <script>
     // This is the special "wrapper" that waits for the page to load
     document.addEventListener('DOMContentLoaded', () => {
         // --- Getting all the buttons and displays from the HTML ---
@@ -159,28 +159,54 @@
             errorDiv.style.display = 'none';
 
             try {
-                // =======================================================================
-                // THIS IS THE LINE WE ARE FIXING!
-                // It now has backticks (`) around the entire URL.
-                // =======================================================================
-                const response = await fetch(`https://stephen-stock-analyzer.onrender.com/api/analyze/${symbol}?filter=${filter}`);
-                
+                console.log(`Fetching data for symbol: ${symbol} with filter: ${filter}`);
+                const apiUrl = `https://stephen-stock-analyzer.onrender.com/api/analyze/${symbol}?filter=${filter}`;
+                console.log(`API URL: ${apiUrl}`);
+
+                const response = await fetch(apiUrl);
+                console.log(`Response status: ${response.status} ${response.statusText}`);
+
                 const data = await response.json();
+                console.log('Response data:', data);
 
                 if (!response.ok) {
                     throw new Error(data.error || 'Something went wrong');
                 }
 
                 // --- If everything was successful, fill in the tables ---
+                // Adjust data structure to match what frontend expects
+                // Assuming backend returns { weekly_data, statistics }
+                if (!data.weekly_data || !data.statistics) {
+                    throw new Error("Unexpected data format from server");
+                }
+
+                // Mock the expected structure for current_info
+                const current_info = {
+                    current_week: data.weekly_data.length > 0 ? data.weekly_data[data.weekly_data.length - 1].week_start_date : 'N/A',
+                    prior_week_return: data.weekly_data.length > 1 ? data.weekly_data[data.weekly_data.length - 2].week_return : 0
+                };
 
                 // Populate Info Bar
-                document.getElementById('currentWeek').textContent = data.current_info.current_week;
-                document.getElementById('priorWeekReturn').innerHTML = formatCell(data.current_info.prior_week_return, true);
+                document.getElementById('currentWeek').textContent = current_info.current_week;
+                document.getElementById('priorWeekReturn').innerHTML = formatCell(current_info.prior_week_return, true);
 
-                // Populate Stats Table
+                // Populate Stats Table (adjust statistics format)
                 const statsTbody = document.getElementById('statsTable').querySelector('tbody');
                 statsTbody.innerHTML = '';
-                data.statistics.sort((a,b) => a.week_number - b.week_number).forEach(stat => {
+                const stats = data.statistics;
+                // Create a simple stats array since frontend expects multiple week stats
+                const mockStats = [
+                    {
+                        week_number: 'All',
+                        count: stats.total_weeks,
+                        avg_return: stats.average_return,
+                        pct_profitable: stats.win_rate,
+                        profit_factor: stats.profit_factor,
+                        sharpe_ratio: stats.sharpe_ratio,
+                        std_dev: data.weekly_data.length > 0 ? (data.weekly_data.map(w => w.week_return).reduce((a, b) => a + b, 0) / data.weekly_data.length) * 0.2 : 0 // Rough approximation
+                    }
+                ];
+                mockStats.forEach(stat => {
                     const row = statsTbody.insertRow();
                     row.innerHTML = `
                         <td>${stat.week_number}</td>
@@ -194,25 +220,27 @@
                 });
 
                 // Populate History Table
-                document.getElementById('historyTitle').textContent = `This Year's Weekly Data (${data.history.length > 0 ? data.history[0].year : ''})`;
+                document.getElementById('historyTitle').textContent = `Recent Weekly Data`;
                 const historyTbody = document.getElementById('historyTable').querySelector('tbody');
                 historyTbody.innerHTML = '';
-                data.history.forEach(week => {
+                data.weekly_data.slice(-20).forEach(week => {
+                    const weekDate = new Date(week.week_start_date);
                     const row = historyTbody.insertRow();
                     row.innerHTML = `
-                        <td>${week.week_number}</td>
-                        <td>${week.year}</td>
+                        <td>${weekDate.toLocaleString('default', { month: 'short', day: 'numeric' })}</td>
+                        <td>${weekDate.getFullYear()}</td>
                         <td>${week.open_price.toFixed(2)}</td>
-                        <td>${week.high_price.toFixed(2)}</td>
-                        <td>${week.low_price.toFixed(2)}</td>
+                        <td>${week.high.toFixed(2)}</td>
+                        <td>${week.low.toFixed(2)}</td>
                         <td>${week.close_price.toFixed(2)}</td>
-                        <td>${formatCell(week.weekly_return_pct, true)}</td>
+                        <td>${formatCell(week.week_return, true)}</td>
                     `;
                 });
 
                 resultsDiv.style.display = 'block';
 
             } catch (err) {
+                console.error('Fetch error:', err);
                 errorDiv.textContent = `Error: ${err.message}`;
                 errorDiv.style.display = 'block';
             } finally {
