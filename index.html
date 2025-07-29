@@ -114,9 +114,10 @@
             </div>
         </div>
     </div>
-
     <script>
+    // This is the special "wrapper" that waits for the page to load
     document.addEventListener('DOMContentLoaded', () => {
+        // --- Getting all the buttons and displays from the HTML ---
         const analyzeBtn = document.getElementById('analyzeBtn');
         const symbolInput = document.getElementById('symbolInput');
         const loader = document.getElementById('loader');
@@ -124,6 +125,7 @@
         const errorDiv = document.getElementById('error-message');
         const filterGroup = document.getElementById('filterGroup');
 
+        // --- Setting up the buttons to call the function when clicked ---
         analyzeBtn.addEventListener('click', analyzeStock);
         filterGroup.addEventListener('change', analyzeStock);
         symbolInput.addEventListener('keypress', function(event) {
@@ -132,13 +134,15 @@
             }
         });
 
+        // --- A helper function to make numbers look nice (green for positive, red for negative) ---
         function formatCell(value, isPercent = false, decimals = 2) {
-            if (typeof value !== 'number') return value;
+            if (typeof value !== 'number' || isNaN(value)) return value;
             const fixedValue = value.toFixed(decimals);
             const className = value > 0 ? 'positive' : value < 0 ? 'negative' : '';
             return `<span class="${className}">${fixedValue}${isPercent ? '%' : ''}</span>`;
         }
 
+        // --- This is the MAIN function that does all the work! ---
         async function analyzeStock() {
             const symbol = symbolInput.value.trim();
             if (!symbol) {
@@ -149,17 +153,25 @@
 
             const filter = document.querySelector('input[name="filter"]:checked').value;
 
+            // Show the spinning loader and hide old results
             loader.style.display = 'block';
             resultsDiv.style.display = 'none';
             errorDiv.style.display = 'none';
 
             try {
-                const response = await fetch(https://stephen-stock-analyzer.onrender.com/api/analyze/${symbol}?filter=${filter}`);
+                // =======================================================================
+                // THIS IS THE LINE WE ARE FIXING!
+                // It now has backticks (`) around the entire URL.
+                // =======================================================================
+                const response = await fetch(`https://stephen-stock-analyzer.onrender.com/api/analyze/${symbol}?filter=${filter}`);
+                
                 const data = await response.json();
 
                 if (!response.ok) {
                     throw new Error(data.error || 'Something went wrong');
                 }
+
+                // --- If everything was successful, fill in the tables ---
 
                 // Populate Info Bar
                 document.getElementById('currentWeek').textContent = data.current_info.current_week;
@@ -204,10 +216,11 @@
                 errorDiv.textContent = `Error: ${err.message}`;
                 errorDiv.style.display = 'block';
             } finally {
+                // Hide the spinning loader when we're done
                 loader.style.display = 'none';
             }
         }
     });
-    </script>
+</script>
 </body>
 </html>
