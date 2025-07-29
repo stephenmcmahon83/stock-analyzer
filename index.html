@@ -1,4 +1,120 @@
-<script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Stock Performance Analyzer</title>
+    <style>
+        :root {
+            --bg-color: #121212; --card-color: #1e1e1e; --text-color: #e0e0e0;
+            --primary-color: #03dac6; --green: #4caf50; --red: #f44336; --border-color: #333;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px;
+        }
+        .container { max-width: 1400px; margin: auto; }
+        .controls, .info-bar, .results-card {
+            background-color: var(--card-color); border: 1px solid var(--border-color);
+            padding: 20px; border-radius: 8px; margin-bottom: 20px;
+        }
+        h1, h2 { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-top: 0;}
+        .input-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        #symbolInput {
+            flex-grow: 1; background-color: #333; border: 1px solid #555; border-radius: 4px;
+            color: var(--text-color); padding: 12px; font-size: 16px;
+        }
+        button {
+            background-color: var(--primary-color); color: var(--bg-color); border: none;
+            padding: 0 25px; border-radius: 4px; font-weight: bold; font-size: 16px; cursor: pointer; transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.8; }
+        .filter-group { display: flex; gap: 10px; }
+        .filter-group label {
+            padding: 8px 15px; border-radius: 4px; cursor: pointer; background-color: #333; transition: background-color 0.2s;
+        }
+        .filter-group input { display: none; }
+        .filter-group input:checked + label { background-color: var(--primary-color); color: var(--bg-color); }
+        .info-bar { display: flex; justify-content: space-around; font-size: 18px; text-align: center; }
+        .info-item span { display: block; font-size: 24px; font-weight: bold; margin-top: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: right; border-bottom: 1px solid var(--border-color); }
+        th { text-align: right; color: var(--primary-color); }
+        td:first-child, th:first-child { text-align: left; }
+        .positive { color: var(--green); }
+        .negative { color: var(--red); }
+        .loader {
+            border: 5px solid #f3f3f3; border-top: 5px solid var(--primary-color);
+            border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite;
+            margin: 40px auto; display: none;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #error-message { color: var(--red); text-align: center; font-size: 18px; padding: 20px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Weekly Stock Performance Analyzer</h1>
+
+        <div class="controls">
+            <div class="input-group">
+                <input type="text" id="symbolInput" placeholder="Enter Stock Symbol (e.g., SPY, AAPL)" onkeyup="this.value = this.value.toUpperCase();">
+                <button id="analyzeBtn">Analyze</button>
+            </div>
+            <div class="filter-group" id="filterGroup">
+                <input type="radio" id="filterAll" name="filter" value="all" checked>
+                <label for="filterAll" id="filterAllLabel">All Weeks (Current Week Num)</label>
+                <input type="radio" id="filterUp" name="filter" value="after_up">
+                <label for="filterUp" id="filterUpLabel">After Up Week (Prev Week Num)</label>
+                <input type="radio" id="filterDown" name="filter" value="after_down">
+                <label for="filterDown" id="filterDownLabel">After Down Week (Prev Week Num)</label>
+            </div>
+        </div>
+
+        <div class="loader" id="loader"></div>
+        <div id="error-message"></div>
+        <div id="results" style="display: none;">
+            <div class="info-bar">
+                <div class="info-item">Current Week<span id="currentWeek"></span></div>
+                <div class="info-item">Prior Week Return<span id="priorWeekReturn"></span></div>
+            </div>
+            <div class="results-card">
+                <h2>Historical Performance for Current Week Number</h2>
+                <table id="statsTable">
+                    <thead>
+                        <tr>
+                            <th>Week</th>
+                            <th>Count</th>
+                            <th>Avg Return %</th>
+                            <th>% Profitable</th>
+                            <th>Profit Factor</th>
+                            <th>Sharpe Ratio</th>
+                            <th>Std Dev %</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="results-card">
+                <h2 id="historyTitle">Historical Data for Current Week Number Across Years</h2>
+                <table id="historyTable">
+                    <thead>
+                        <tr>
+                            <th>Week</th>
+                            <th>Year</th>
+                            <th>Open</th>
+                            <th>High</th>
+                            <th>Low</th>
+                            <th>Close</th>
+                            <th>Return %</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script>
     // This is the special "wrapper" that waits for the page to load
     document.addEventListener('DOMContentLoaded', () => {
         // --- Getting all the buttons and displays from the HTML ---
@@ -8,6 +124,9 @@
         const resultsDiv = document.getElementById('results');
         const errorDiv = document.getElementById('error-message');
         const filterGroup = document.getElementById('filterGroup');
+        const filterAllLabel = document.getElementById('filterAllLabel');
+        const filterUpLabel = document.getElementById('filterUpLabel');
+        const filterDownLabel = document.getElementById('filterDownLabel');
 
         // --- Setting up the buttons to call the function when clicked ---
         analyzeBtn.addEventListener('click', analyzeStock);
@@ -58,66 +177,51 @@
                 }
 
                 // --- If everything was successful, fill in the tables ---
-                // Adjust data structure to match what frontend expects
-                // Assuming backend returns { weekly_data, statistics }
-                if (!data.weekly_data || !data.statistics) {
-                    throw new Error("Unexpected data format from server");
-                }
-
-                // Mock the expected structure for current_info
-                const current_info = {
-                    current_week: data.weekly_data.length > 0 ? data.weekly_data[data.weekly_data.length - 1].week_start_date : 'N/A',
-                    prior_week_return: data.weekly_data.length > 1 ? data.weekly_data[data.weekly_data.length - 2].week_return : 0
-                };
+                // Update filter labels dynamically based on current week
+                const currentWeekText = data.current_info.current_week || 'Current Week';
+                const prevWeekNum = parseInt(currentWeekText.split(' ')[1]) - 1;
+                filterAllLabel.textContent = `All ${currentWeekText}s`;
+                filterUpLabel.textContent = `After Up Week (Week ${prevWeekNum})`;
+                filterDownLabel.textContent = `After Down Week (Week ${prevWeekNum})`;
 
                 // Populate Info Bar
-                document.getElementById('currentWeek').textContent = current_info.current_week;
-                document.getElementById('priorWeekReturn').innerHTML = formatCell(current_info.prior_week_return, true);
+                document.getElementById('currentWeek').textContent = currentWeekText;
+                document.getElementById('priorWeekReturn').innerHTML = formatCell(data.current_info.prior_week_return, true);
 
-                // Populate Stats Table (adjust statistics format)
+                // Populate Stats Table
                 const statsTbody = document.getElementById('statsTable').querySelector('tbody');
                 statsTbody.innerHTML = '';
-                const stats = data.statistics;
-                // Create a simple stats array since frontend expects multiple week stats
-                const mockStats = [
-                    {
-                        week_number: 'All',
-                        count: stats.total_weeks,
-                        avg_return: stats.average_return,
-                        pct_profitable: stats.win_rate,
-                        profit_factor: stats.profit_factor,
-                        sharpe_ratio: stats.sharpe_ratio,
-                        std_dev: data.weekly_data.length > 0 ? (data.weekly_data.map(w => w.week_return).reduce((a, b) => a + b, 0) / data.weekly_data.length) * 0.2 : 0 // Rough approximation
+                // Ensure data.statistics is treated as an array
+                const statsArray = Array.isArray(data.statistics) ? data.statistics : [data.statistics];
+                statsArray.forEach(stat => {
+                    if (stat) { // Check if stat object exists
+                        const row = statsTbody.insertRow();
+                        row.innerHTML = `
+                            <td>${stat.week_number || 'N/A'}</td>
+                            <td>${stat.count || 0}</td>
+                            <td>${formatCell(stat.avg_return || 0, true)}</td>
+                            <td>${formatCell(stat.pct_profitable || 0, true)}</td>
+                            <td>${formatCell(stat.profit_factor || 0)}</td>
+                            <td>${formatCell(stat.sharpe_ratio || 0)}</td>
+                            <td>${formatCell(stat.std_dev || 0, true)}</td>
+                        `;
                     }
-                ];
-                mockStats.forEach(stat => {
-                    const row = statsTbody.insertRow();
-                    row.innerHTML = `
-                        <td>${stat.week_number}</td>
-                        <td>${stat.count}</td>
-                        <td>${formatCell(stat.avg_return, true)}</td>
-                        <td>${formatCell(stat.pct_profitable, true)}</td>
-                        <td>${formatCell(stat.profit_factor)}</td>
-                        <td>${formatCell(stat.sharpe_ratio)}</td>
-                        <td>${formatCell(stat.std_dev, true)}</td>
-                    `;
                 });
 
                 // Populate History Table
-                document.getElementById('historyTitle').textContent = `Recent Weekly Data`;
+                document.getElementById('historyTitle').textContent = `Historical Data for ${currentWeekText} Across Years`;
                 const historyTbody = document.getElementById('historyTable').querySelector('tbody');
                 historyTbody.innerHTML = '';
-                data.weekly_data.slice(-20).forEach(week => {
-                    const weekDate = new Date(week.week_start_date);
+                data.history.forEach(week => {
                     const row = historyTbody.insertRow();
                     row.innerHTML = `
-                        <td>${weekDate.toLocaleString('default', { month: 'short', day: 'numeric' })}</td>
-                        <td>${weekDate.getFullYear()}</td>
+                        <td>${week.week_number}</td>
+                        <td>${week.year}</td>
                         <td>${week.open_price.toFixed(2)}</td>
-                        <td>${week.high.toFixed(2)}</td>
-                        <td>${week.low.toFixed(2)}</td>
+                        <td>${week.high_price.toFixed(2)}</td>
+                        <td>${week.low_price.toFixed(2)}</td>
                         <td>${week.close_price.toFixed(2)}</td>
-                        <td>${formatCell(week.week_return, true)}</td>
+                        <td>${formatCell(week.weekly_return_pct, true)}</td>
                     `;
                 });
 
@@ -133,4 +237,6 @@
             }
         }
     });
-</script>
+    </script>
+</body>
+</html>
